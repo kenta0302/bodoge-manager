@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>🎲 ボドゲ大会＆戦績マネージャー</title>
+<style>
+:root{--bg:#f8fafc;--card:#fff;--txt:#0f172a;--mut:#64748b;--pri:#4f46e5;--pri2:#eef2ff;--suc:#059669;--dan:#dc2626;--bdr:#e2e8f0;--sub:#f1f5f9}
+@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--card:#1e293b;--txt:#f1f5f9;--mut:#94a3b8;--pri:#6366f1;--pri2:#1e1b4b;--suc:#10b981;--dan:#ef4444;--bdr:#334155;--sub:#0f172a}}
+*{box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{margin:0;background:var(--bg);color:var(--txt);padding-bottom:60px;font-size:14px}
+header{background:var(--card);border-bottom:1px solid var(--bdr);padding:10px 14px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;position:sticky;top:0;z-index:20}
+.wrap{max-width:980px;margin:0 auto;padding:12px}
+.tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px}
+.tab{padding:8px 14px;border-radius:8px;border:1px solid var(--bdr);background:var(--card);color:var(--txt);cursor:pointer;font-weight:700;white-space:nowrap}
+.tab.act{background:var(--pri);color:#fff;border-color:var(--pri)}
+.card{background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:14px;margin-bottom:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.flex{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.between{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+button{padding:7px 12px;border-radius:8px;border:none;font-weight:700;cursor:pointer;font-size:12px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.bp{background:var(--pri);color:#fff}.bs{background:var(--suc);color:#fff}.bd{background:var(--dan);color:#fff}
+.bo{background:var(--card);color:var(--txt);border:1px solid var(--bdr)}.bsoft{background:var(--pri2);color:var(--pri)}
+input,select,textarea{padding:7px 10px;border-radius:8px;border:1px solid var(--bdr);background:var(--card);color:var(--txt);font-size:13px;width:100%}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:var(--sub);border:1px solid var(--bdr)}
+.chip.sel{background:var(--pri);color:#fff;border-color:var(--pri)}
+.chip.busy{opacity:.45;text-decoration:line-through}
+.tbl{border-left:4px solid var(--pri)}.tbl.done{border-left-color:var(--suc);opacity:.88}
+.hide{display:none!important}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;padding:12px;z-index:50}
+.mbox{background:var(--card);border-radius:14px;max-width:600px;width:100%;max-height:92vh;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--bdr);text-align:left}
+th{color:var(--mut);font-size:11px}
+.spec{position:fixed;inset:0;background:#0b1120;color:#f8fafc;z-index:40;overflow-y:auto;padding:18px}
+.scard{background:#1e293b;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:12px}
+.toast{position:fixed;bottom:16px;right:16px;background:#0f172a;color:#fff;padding:10px 14px;border-radius:10px;font-size:12px;font-weight:700;z-index:99;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.qrbox{background:#fff;padding:12px;border-radius:12px;display:inline-flex;flex-direction:column;align-items:center;gap:6px;margin:0 auto}
+video{width:100%;max-height:220px;border-radius:10px;background:#000;object-fit:cover}
+</style>
+</head>
+<body>
+<header>
+  <strong id="hdrTitle" style="font-size:15px">🎲 ボドゲ大会＆戦績マネージャー</strong>
+  <div id="hdrBtns" class="flex">
+    <button id="bShareUrl" class="bp">🔗 URLで結果配布</button>
+    <button id="bScanQr" class="bsoft">📥 結果QR回収</button>
+    <button id="bDice" class="bo">🎲 ダイス/コイン</button>
+    <button id="bSpecWin" class="bo">🖥️ ライブ観戦別窓</button>
+    <button id="bSpec" class="bo">📺 同画面観戦</button>
+    <button id="bExp" class="bs">💾 TXT出力</button>
+    <button id="bImp" class="bo">📂 TXT読込</button>
+  </div>
+</header>
+
+<!-- MAIN HOST VIEW -->
+<div id="mainWrap" class="wrap">
+  <div class="tabs">
+    <button class="tab act" data-t="t1">🎮 1. 卓進行・マッチ</button>
+    <button class="tab" data-t="t2">⚙️ 2. 種目ライブラリ・設定</button>
+    <button class="tab" data-t="t3">🏆 3. 総合ランキング・履歴</button>
+    <button class="tab" data-t="t4">📊 4. 通算集計(複数TXT)</button>
+  </div>
+
+  <!-- TAB 1: TABLES -->
+  <section id="t1">
+    <div class="card">
+      <div class="between" style="margin-bottom:8px">
+        <strong id="lblTourneyName">大会進行中</strong>
+        <button id="bToggleNewTbl" class="bp">＋ 新しい卓（ゲーム）を立てる</button>
+      </div>
+      <div id="newTblBox" class="hide" style="background:var(--sub);padding:12px;border-radius:10px;margin-top:8px;display:flex;flex-direction:column;gap:8px">
+        <div class="grid2" style="gap:8px">
+          <div>
+            <label style="font-size:11px;color:var(--mut)">遊ぶゲーム種目</label>
+            <select id="selGame"></select>
+          </div>
+          <div>
+            <label style="font-size:11px;color:var(--mut)">この卓の人数（自由変更可）</label>
+            <div class="flex">
+              <input id="inpSeats" type="number" min="2" max="20" value="4" style="width:80px">
+              <button id="bAutoPick" class="bsoft">空きメンバーから自動選出</button>
+              <button id="bClearPick" class="bo">クリア</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--mut);margin-bottom:4px">参加メンバーを選択（取り消し線は他卓でプレイ中）: <b id="lblPickCount">0人選択中</b></div>
+          <div id="pickPool" class="flex"></div>
+        </div>
+        <button id="bCreateTbl" class="bs" style="padding:10px">▶ このメンバーで卓を開始（親を自動決定）</button>
+      </div>
+    </div>
+    <div id="tblList"></div>
+  </section>
+
+  <!-- TAB 2: LIBRARY & SETTINGS -->
+  <section id="t2" class="hide">
+    <div class="grid2">
+      <div class="card">
+        <div class="between" style="margin-bottom:8px">
+          <strong>📚 マイ種目ライブラリ（自動永続保存）</strong>
+          <div class="flex">
+            <button id="bExpLib" class="bo">📤 種目TXT出力</button>
+            <button id="bImpLib" class="bo">📥 種目TXT読込</button>
+          </div>
+        </div>
+        <div id="libList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+        <div style="background:var(--sub);padding:10px;border-radius:8px;display:flex;flex-direction:column;gap:6px">
+          <strong style="font-size:12px;color:var(--pri)">＋ 新しいゲーム種目を登録</strong>
+          <div class="grid2" style="gap:6px">
+            <input id="gName" placeholder="ゲーム名（例：カタン / 人狼 / ごいた）">
+            <input id="gSeats" type="number" min="2" max="20" value="4" placeholder="標準人数 (2-20)">
+          </div>
+          <div class="grid2" style="gap:6px">
+            <select id="gMode">
+              <option value="multi">複数人上がり制（正体隠匿・脱落系等）</option>
+              <option value="pair">即席2vs2ペア戦（パートナー戦等）</option>
+              <option value="rank">順位制 1位〜N位（ポイント・レース系）</option>
+            </select>
+            <div class="flex" style="flex-wrap:nowrap">
+              <input id="gWin" type="number" value="10" placeholder="勝利GP">
+              <input id="gLose" type="number" value="2" placeholder="参加GP">
+            </div>
+          </div>
+          <input id="gRoles" placeholder="役回り候補（カンマ区切り：例 市民,人狼,占い師）">
+          <button id="bAddGame" class="bp">ライブラリに保存</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="between" style="margin-bottom:8px">
+          <strong>👥 大会・参加者・チーム設定</strong>
+          <button id="bResetTourney" class="bd">大会記録のみリセット</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <input id="tTitle" placeholder="大会名">
+          <label class="flex" style="font-size:12px;cursor:pointer">
+            <input id="tTeamMode" type="checkbox" style="width:auto"> チーム対抗戦を有効にする
+          </label>
+          <div id="teamBox" class="hide" style="background:var(--sub);padding:8px;border-radius:8px">
+            <div class="flex" style="margin-bottom:6px">
+              <input id="tNames" placeholder="チーム名（カンマ区切り：例 レッド,ブルー）" value="レッド,ブルー">
+              <button id="bShuffleTeams" class="bsoft">ランダムチーム分け</button>
+            </div>
+          </div>
+          <div class="flex">
+            <input id="pName" placeholder="新しい参加者名を追加">
+            <button id="bAddPlayer" class="bp">追加</button>
+          </div>
+          <div id="playerList" style="max-height:260px;overflow-y:auto"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: RANKING -->
+  <section id="t3" class="hide">
+    <div id="teamRankCard" class="card hide">
+      <strong>🚩 チーム総合ランキング</strong>
+      <div id="teamRankTbl" style="margin-top:8px"></div>
+    </div>
+    <div class="card">
+      <div class="between" style="margin-bottom:8px">
+        <strong>🏆 個人総合ランキング（名前タップで役回り戦績・詳細表示）</strong>
+        <button id="bCopySummary" class="bsoft">📋 結果テキストをコピー</button>
+      </div>
+      <div style="overflow-x:auto" id="rankTbl"></div>
+    </div>
+  </section>
+
+  <!-- TAB 4: MULTI TXT AGGREGATOR -->
+  <section id="t4" class="hide">
+    <div class="card">
+      <strong>📊 複数大会TXTの一括合算（通算シーズン集計）</strong>
+      <p style="font-size:12px;color:var(--mut)">過去に出力した複数の大会TXTファイルを同時に選択すると、サーバーなしで通算GPランキングと役回り別勝率トップを集計します。</p>
+      <input id="multiTxtFiles" type="file" accept=".txt" multiple style="margin-bottom:10px">
+      <div id="aggResult"></div>
+    </div>
+  </section>
+</div>
+
+<!-- CHILD TABLE VIEW (QR SCAN MODE) -->
+<div id="childWrap" class="wrap hide">
+  <div class="card" style="border-top:4px solid var(--pri)">
+    <div class="between">
+      <div>
+        <span class="chip" style="background:var(--pri);color:#fff">📱 子機卓モード</span>
+        <strong id="chGameName" style="font-size:16px;margin-left:4px"></strong>
+      </div>
+      <button id="bExitChild" class="bo">親機画面へ戻る</button>
+    </div>
+    <div id="chMeta" style="font-size:12px;color:var(--mut);margin:6px 0"></div>
+    <div id="chPrev" style="background:var(--sub);padding:8px;border-radius:8px;font-size:12px;margin-bottom:10px"></div>
+    <strong id="chRoundLbl" style="color:var(--pri)">第1回戦の記録</strong>
+    <div id="chBody" style="display:flex;flex-direction:column;gap:6px;margin:8px 0"></div>
+    <div class="grid2" style="gap:8px;margin-top:10px">
+      <button id="bChSaveRound" class="bp" style="padding:10px">✔ この回戦を記録して次へ</button>
+      <button id="bChShowQr" class="bs" style="padding:10px">📤 結果を親機へ返す(QR)</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIVE SPECTATOR VIEW -->
+<div id="specView" class="spec hide">
+  <div style="max-width:1100px;margin:0 auto">
+    <div class="between" style="margin-bottom:14px">
+      <div>
+        <span class="chip" style="background:#ef4444;color:#fff;border:none">● LIVE観戦ボード</span>
+        <strong id="specTitle" style="font-size:20px;margin-left:8px"></strong>
+      </div>
+      <button id="bCloseSpec" class="bo" style="background:#334155;color:#fff;border:none">✕ 観戦終了</button>
+    </div>
+    <div class="grid2">
+      <div>
+        <h3 style="margin:0 0 8px;color:#94a3b8;font-size:13px">🎮 進行中の卓（リアルタイム連動）</h3>
+        <div id="specTables"></div>
+      </div>
+      <div>
+        <h3 style="margin:0 0 8px;color:#94a3b8;font-size:13px">🏆 現在のトップランキング</h3>
+        <div class="scard" id="specRank"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RECORD ROUND -->
+<div id="mRec" class="modal hide">
+  <div class="mbox">
+    <div class="between">
+      <div><span id="mRecGame" class="chip" style="background:var(--pri);color:#fff"></span> <b id="mRecRound"></b></div>
+      <div class="flex">
+        <button id="bUndoRound" class="bo" style="color:var(--dan)">↩ 直前の1回戦取消</button>
+        <button id="bCloseRec" class="bo">閉じる</button>
+      </div>
+    </div>
+    <div id="mRecPrev" style="background:var(--sub);padding:8px;border-radius:8px;font-size:11px;max-height:110px;overflow-y:auto"></div>
+    <div id="mRecBody" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div class="grid2" style="gap:6px;margin-top:4px">
+      <button id="bSaveNext" class="bp">記録して次の回戦へ進む</button>
+      <button id="bSaveFinish" class="bs">記録してこの卓を終了</button>
+    </div>
+    <button id="bOnlyFinish" class="bo" style="width:100%">記録せず現在の戦績のまま卓を終了する</button>
+  </div>
+</div>
+
+<!-- MODAL: PLAYER DETAIL -->
+<div id="mPlr" class="modal hide">
+  <div class="mbox">
+    <div class="between"><strong id="mPlrName" style="font-size:16px"></strong><button id="bClosePlr" class="bo">閉じる</button></div>
+    <div id="mPlrStats"></div>
+  </div>
+</div>
+
+<!-- MODAL: DICE / COIN -->
+<div id="mDice" class="modal hide">
+  <div class="mbox" style="max-width:340px;text-align:center">
+    <div class="between"><b>🎲 卓内ユーティリティ</b><button id="bCloseDice" class="bo">✕</button></div>
+    <div id="diceOut" style="font-size:28px;font-weight:900;padding:18px;background:var(--sub);border-radius:10px">READY</div>
+    <div class="grid2" style="gap:6px">
+      <button id="bCoin" class="bp">🪙 コイントス</button>
+      <button id="bD6" class="bsoft">🎲 6面ダイス</button>
+      <button id="bD20" class="bsoft">🔮 20面ダイス</button>
+      <button id="bRandP" class="bo">👤 参加者から1名抽選</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: IMPORT TXT -->
+<div id="mImp" class="modal hide">
+  <div class="mbox">
+    <div class="between"><b id="mImpTitle">TXTデータの読み込み</b><button id="bCloseImp" class="bo">✕</button></div>
+    <input id="impFile" type="file" accept=".txt">
+    <textarea id="impText" rows="5" placeholder="またはTXTの中身をそのまま貼り付けてください"></textarea>
+    <button id="bDoImp" class="bp">データを読み込む</button>
+  </div>
+</div>
+
+<!-- MODAL: QR SHOW (DISTRIBUTE / RETURN) -->
+<div id="mQrShow" class="modal hide">
+  <div class="mbox" style="max-width:420px;text-align:center">
+    <div class="between"><b id="mQrTitle">📱 QRコード</b><button id="bCloseQrShow" class="bo">✕</button></div>
+    <p id="mQrDesc" style="font-size:12px;color:var(--mut);margin:0"></p>
+    <div class="qrbox"><canvas id="qrCanvas" width="210" height="210"></canvas></div>
+    <div id="qrLinkBox" class="hide" style="display:flex;flex-direction:column;gap:6px">
+      <button id="bTestChild" class="bsoft">🧪 この端末で子機画面をテスト起動する</button>
+    </div>
+    <textarea id="qrPayloadTxt" rows="2" readonly style="font-size:11px;background:var(--sub)"></textarea>
+    <button id="bCopyQrTxt" class="bo">📋 連携コードをコピー</button>
+  </div>
+</div>
+
+<!-- MODAL: QR SCAN (COLLECT RESULT) -->
+<div id="mQrScan" class="modal hide">
+  <div class="mbox" style="max-width:440px">
+    <div class="between"><b>📥 子機スマホから戦績QR回収</b><button id="bCloseQrScan" class="bo">✕</button></div>
+    <p style="font-size:12px;color:var(--mut);margin:0">子機画面の「📤 結果を親機へ返す(QR)」をカメラにかざすか、下の欄に連携コードを貼り付けてください。</p>
+    <video id="qrVideo" class="hide" playsinline></video>
+    <div class="flex">
+      <button id="bStartCam" class="bp">📷 カメラを起動してQR読取</button>
+      <span id="camStatus" style="font-size:11px;color:var(--mut)"></span>
+    </div>
+    <textarea id="qrScanTxt" rows="3" placeholder="または子機からコピーした連携コード（BG_RET:...）をここに貼付"></textarea>
+    <div class="grid2" style="gap:6px">
+      <button id="bApplyQrKeep" class="bsoft">進行中のまま途中経過を反映</button>
+      <button id="bApplyQrTxt" class="bs">卓を完了して戦績を合算</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: SHARE URL -->
+<div id="mShare" class="modal hide">
+  <div class="mbox" style="max-width:460px;text-align:center">
+    <div class="between"><b>🔗 大会記録をURLで全員に配布</b><button id="bCloseShare" class="bo">✕</button></div>
+    <p style="font-size:12px;color:var(--mut);margin:0">現在の順位表・全対戦履歴をURLに圧縮して埋め込みました。LINEやDiscordに貼るだけで、受け取った人がそのまま結果閲覧・データ復元できます。</p>
+    <div class="qrbox"><canvas id="shareQrCanvas" width="200" height="200"></canvas></div>
+    <div id="shareUrlLen" style="font-size:11px;color:var(--mut)"></div>
+    <textarea id="shareUrlTxt" rows="3" readonly style="font-size:11px;background:var(--sub)"></textarea>
+    <div class="grid2" style="gap:6px">
+      <button id="bCopyShareUrl" class="bp">📋 配布用URLをコピー</button>
+      <button id="bPreviewShare" class="bo">👀 配布リンクの動作テスト</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hide"></div>
+
+<script>
+(function(){
+'use strict';
+var K_LIB='bgmgr_lib_v1',K_TRN='bgmgr_tourney_v1',SEP='===SYSTEM_DATA_JSON===';
+var DEFAULT_LIB=[
+  {id:'g1',name:'正体隠匿・複数上がりゲーム',seats:5,mode:'multi',win:10,lose:0,roles:['市民陣営','人狼陣営','裏切り者','特殊役職']},
+  {id:'g2',name:'ペア戦ボードゲーム（ごいた等）',seats:4,mode:'pair',win:10,lose:2,roles:['攻め役','受け役','エース']},
+  {id:'g3',name:'順位制ボードゲーム（カタン・レース等）',seats:4,mode:'rank',win:10,lose:2,roles:['1番手','2番手','3番手','4番手']}
+];
+function defTourney(){
+  return{
+    title:'ボードゲーム交流大会',teamMode:false,
+    teams:[{id:'tm1',name:'レッド'},{id:'tm2',name:'ブルー'}],
+    players:['アリス','ボブ','チャーリー','デイジー','エレン','フランク','グレース','ヘンリー','イヴ'].map(function(n,i){return{id:'p'+(i+1),name:n,teamId:i%2?'tm2':'tm1'};}),
+    tables:[]
+  };
+}
+var lib=JSON.parse(JSON.stringify(DEFAULT_LIB)),trn=defTourney(),picked=[],recTblId=null,impMode='tourney',childTbl=null,camStream=null,scanTimer=null;
+var bc=('BroadcastChannel' in window)?new BroadcastChannel('bgmgr_live_sync'):null;
+
+function $(id){return document.getElementById(id);}
+function toast(msg){var el=$('toast');el.textContent=msg;el.classList.remove('hide');clearTimeout(el._t);el._t=setTimeout(function(){el.classList.add('hide');},2600);}
+function b64e(s){return btoa(unescape(encodeURIComponent(s)));}
+function b64d(s){return decodeURIComponent(escape(atob(s)));}
+
+function save(){
+  try{
+    localStorage.setItem(K_LIB,JSON.stringify(lib));
+    localStorage.setItem(K_TRN,JSON.stringify(trn));
+    if(bc)bc.postMessage({type:'SYNC',trn:trn});
+  }catch(e){}
+}
+function load(){
+  try{
+    var l=localStorage.getItem(K_LIB),t=localStorage.getItem(K_TRN);
+    if(l)lib=JSON.parse(l);
+    if(t)trn=JSON.parse(t);
+  }catch(e){}
+}
+if(bc){bc.onmessage=function(ev){if(ev.data&&ev.data.type==='SYNC'){trn=ev.data.trn;if(!$('specView').classList.contains('hide'))renderSpec();else renderAll();}};}
+window.addEventListener('storage',function(e){if(e.key===K_TRN&&e.newValue){trn=JSON.parse(e.newValue);if(!$('specView').classList.contains('hide'))renderSpec();else renderAll();}});
+
+// Lightweight Pure-JS QR Code Generator (Version 1-10 Byte Mode)
+function drawQr(canvas,text){
+  var ctx=canvas.getContext('2d'),sz=canvas.width;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,sz,sz);
+  var bytes=[];for(var i=0;i<text.length;i++){var c=text.charCodeAt(i);if(c<128)bytes.push(c);else if(c<2048)bytes.push(192|(c>>6),128|(c&63));else bytes.push(224|(c>>12),128|((c>>6)&63),128|(c&63));}
+  var ver=1,caps=[17,32,53,78,106,134,154,192,230,271];
+  while(ver<10&&bytes.length>caps[ver-1])ver++;
+  var n=17+ver*4,mod=Array.from({length:n},function(){return Array(n).fill(null);});
+  function finder(r,c){for(var dr=-1;dr<=7;dr++)for(var dc=-1;dc<=7;dc++){var rr=r+dr,cc=c+dc;if(rr<0||rr>=n||cc<0||cc>=n)continue;mod[rr][cc]=(dr>=0&&dr<=6&&dc>=0&&dc<=6&&(dr===0||dr===6||dc===0||dc===6||(dr>=2&&dr<=4&&dc>=2&&dc<=4)))?1:0;}}
+  finder(0,0);finder(0,n-7);finder(n-7,0);
+  for(var i=8;i<n-8;i++){mod[6][i]=i%2===0?1:0;mod[i][6]=i%2===0?1:0;}
+  var bits=[0,1,0,0],lenBits=ver<10?8:16;
+  for(var i=lenBits-1;i>=0;i--)bits.push((bytes.length>>i)&1);
+  bytes.forEach(function(b){for(var i=7;i>=0;i--)bits.push((b>>i)&1);});
+  for(var i=0;i<4&&bits.length<caps[ver-1]*8;i++)bits.push(0);
+  while(bits.length%8)bits.push(0);
+  var pad=[236,17],pi=0;while(bits.length<caps[ver-1]*8){for(var i=7;i>=0;i--)bits.push((pad[pi]>>i)&1);pi^=1;}
+  var bi=0,up=-1;
+  for(var col=n-1;col>0;col-=2){if(col===6)col--;for(var row=up<0?n-1:0;row>=0&&row<n;row+=up){for(var dx=0;dx<2;dx++){var cc=col-dx;if(mod[row][cc]===null){var v=bi<bits.length?bits[bi++]:0;if((row+cc)%2===0)v^=1;mod[row][cc]=v;}}}up=-up;}
+  var cell=Math.floor((sz-16)/n),off=Math.floor((sz-cell*n)/2);
+  ctx.fillStyle='#0f172a';
+  for(var r=0;r<n;r++)for(var c=0;c<n;c++)if(mod[r][c]===1)ctx.fillRect(off+c*cell,off+r*cell,cell,cell);
+}
+
+// Timer loop
+setInterval(function(){
+  var changed=false;
+  trn.tables.forEach(function(t){if(t.tRun&&t.tSec>0){t.tSec--;changed=true;if(t.tSec===0){t.tRun=false;toast('⏰ '+t.gameName+' 卓のタイマー終了！');}}});
+  if(changed){renderTables();if(!$('specView').classList.contains('hide'))renderSpec();}
+},1000);
+function fmtTime(s){var m=Math.floor(s/60),sc=s%60;return(m<10?'0':'')+m+':'+(sc<10?'0':'')+sc;}
+function pName(id){var p=trn.players.find(function(x){return x.id===id;});return p?p.name:'不明';}
+function modeTxt(m){return m==='pair'?'2vs2ペア戦':m==='rank'?'順位制':'複数上がり制';}
+
+function renderAll(){
+  $('hdrTitle').textContent='🎲 '+trn.title;
+  $('lblTourneyName').textContent=trn.title+'（参加者 '+trn.players.length+'名）';
+  $('tTitle').value=trn.title;
+  $('tTeamMode').checked=trn.teamMode;
+  $('teamBox').classList.toggle('hide',!trn.teamMode);
+  renderSelectGame();renderPickPool();renderTables();renderLib();renderPlayers();renderRank();
+}
+
+function renderSelectGame(){
+  var sel=$('selGame'),cur=sel.value;
+  sel.innerHTML='';
+  lib.forEach(function(g){var o=document.createElement('option');o.value=g.id;o.textContent=g.name+'（標準'+g.seats+'人 / '+modeTxt(g.mode)+'）';sel.appendChild(o);});
+  if(cur&&lib.some(function(x){return x.id===cur;}))sel.value=cur;
+  var g=lib.find(function(x){return x.id===sel.value;});
+  if(g&&!$('newTblBox').classList.contains('hide'))$('inpSeats').value=g.seats;
+}
+
+function busyPids(){
+  var s={};
+  trn.tables.forEach(function(t){if(t.status==='active')t.pids.forEach(function(id){s[id]=1;});});
+  return s;
+}
+
+function renderPickPool(){
+  var pool=$('pickPool'),busy=busyPids();
+  pool.innerHTML='';
+  trn.players.forEach(function(p){
+    var b=document.createElement('span');
+    var isSel=picked.indexOf(p.id)>=0;
+    b.className='chip'+(isSel?' sel':'')+(busy[p.id]?' busy':'');
+    b.style.cursor='pointer';
+    b.textContent=p.name;
+    b.onclick=function(){
+      var idx=picked.indexOf(p.id);
+      if(idx>=0)picked.splice(idx,1);else picked.push(p.id);
+      renderPickPool();
+    };
+    pool.appendChild(b);
+  });
+  $('lblPickCount').textContent=picked.length+'人選択中';
+}
+
+function renderTables(){
+  var box=$('tblList');box.innerHTML='';
+  if(!trn.tables.length){box.innerHTML='<div class="card" style="text-align:center;color:var(--mut)">まだ卓がありません。「＋ 新しい卓（ゲーム）を立てる」から開始してください。</div>';return;}
+  trn.tables.slice().reverse().forEach(function(t){
+    var d=document.createElement('div');
+    d.className='card tbl'+(t.status==='finished'?' done':'');
+    var pTags=t.pids.map(function(id,i){
+      var pairTag=t.mode==='pair'?(i%2===0?'[A組] ':'[B組] '):'';
+      var oya=id===t.oyaId?'👑親:':'';
+      return '<span class="chip">'+(i+1)+'. '+pairTag+oya+pName(id)+'</span>';
+    }).join(' ');
+    var hist=t.rounds.map(function(r){return '<div><b>第'+r.rn+'回戦:</b> '+r.sum+'</div>';}).join('');
+    d.innerHTML='<div class="between">'
+      +'<div><span class="chip" style="background:'+(t.status==='active'?'var(--pri)':'var(--suc)')+';color:#fff">'+(t.status==='active'?'進行中':'完了')+'</span> <strong>'+t.gameName+'</strong> <span style="font-size:11px;color:var(--mut)">('+modeTxt(t.mode)+' / 全'+t.rounds.length+'回戦済)</span></div>'
+      +'<div class="flex">'
+      +(t.status==='active'?'<span class="chip">⏱ '+fmtTime(t.tSec)+'</span><button class="bo" data-act="tm">'+(t.tRun?'停止':'開始')+'</button><button class="bo" data-act="oya">🎲親再抽選</button><button class="bsoft" data-act="qr">📱QR配布</button><button class="bp" data-act="rec">📝 第'+(t.rounds.length+1)+'回戦を記録</button>':'<button class="bo" data-act="reopen">再開</button>')
+      +'<button class="bo" data-act="del" style="color:var(--dan)">削除</button>'
+      +'</div></div>'
+      +'<div class="flex" style="margin-top:8px">'+pTags+'</div>'
+      +(hist?'<div style="margin-top:8px;padding:8px;background:var(--sub);border-radius:8px;font-size:12px">'+hist+'</div>':'');
+    d.querySelectorAll('button').forEach(function(btn){
+      btn.onclick=function(){
+        var a=btn.getAttribute('data-act');
+        if(a==='tm'){t.tRun=!t.tRun;save();renderTables();}
+        else if(a==='oya'){t.oyaId=t.pids[Math.floor(Math.random()*t.pids.length)];save();renderTables();toast('親を '+pName(t.oyaId)+' に変更しました');}
+        else if(a==='qr'){showDistQr(t);}
+        else if(a==='rec'){openRec(t.id);}
+        else if(a==='reopen'){t.status='active';save();renderTables();}
+        else if(a==='del'){trn.tables=trn.tables.filter(function(x){return x.id!==t.id;});save();renderAll();}
+      };
+    });
+    box.appendChild(d);
+  });
+}
+
+// Build inputs for round recording (shared between Host modal & Child mode)
+function buildRoundInputs(container,t,g){
+  container.innerHTML='';
+  var roles=(g&&g.roles)?g.roles:[];
+  t.pids.forEach(function(pid,idx){
+    var row=document.createElement('div');
+    row.style.cssText='padding:8px;border:1px solid var(--bdr);border-radius:8px;display:flex;flex-direction:column;gap:6px';
+    var pairLbl=t.mode==='pair'?(idx%2===0?'<span class="chip" style="background:#dbeafe;color:#1e40af">Aペア</span>':'<span class="chip" style="background:#fce7f3;color:#9d174d">Bペア</span>'):'';
+    var ctrl='';
+    if(t.mode==='multi'){
+      ctrl='<label class="flex" style="font-size:12px;font-weight:700;color:var(--suc)"><input type="checkbox" class="r-win" style="width:auto"> ★ 上がり / 勝ち抜け (+'+(g?g.win:10)+'GP)</label>';
+    }else if(t.mode==='pair'){
+      ctrl='<span style="font-size:11px;color:var(--mut)">※下の勝利ペア選択で自動計算</span>';
+    }else{
+      var opts='';for(var r=1;r<=t.pids.length;r++)opts+='<option value="'+r+'">'+r+'位</option>';
+      ctrl='<select class="r-rank" style="width:90px">'+opts+'</select>';
+    }
+    var rChips=roles.map(function(rl){return '<span class="chip r-chip" style="cursor:pointer">'+rl+'</span>';}).join('');
+    row.innerHTML='<div class="between"><div>'+pairLbl+' <b>'+pName(pid)+'</b></div>'+ctrl+'</div>'
+      +'<div class="flex"><input class="r-role" placeholder="役回り・使用キャラ等（任意）" style="flex:1">'+rChips+'</div>';
+    row.querySelectorAll('.r-chip').forEach(function(ch){
+      ch.onclick=function(){row.querySelector('.r-role').value=ch.textContent;};
+    });
+    container.appendChild(row);
+  });
+  if(t.mode==='pair'){
+    var pBox=document.createElement('div');
+    pBox.style.cssText='padding:8px;background:var(--pri2);border-radius:8px;display:flex;gap:12px;align-items:center';
+    pBox.innerHTML='<b style="font-size:12px">勝利ペア:</b><label><input type="radio" name="winPair" value="A" checked style="width:auto"> Aペア勝利</label><label><input type="radio" name="winPair" value="B" style="width:auto"> Bペア勝利</label>';
+    container.prepend(pBox);
+  }
+}
+
+function collectRoundResult(container,t,g){
+  var winPt=g?Number(g.win):10,losePt=g?Number(g.lose):2;
+  var rows=container.querySelectorAll(':scope > div');
+  var startIdx=t.mode==='pair'?1:0;
+  var winPair=t.mode==='pair'?(container.querySelector('input[name="winPair"]:checked').value):'';
+  var res=[],sums=[];
+  for(var i=0;i<t.pids.length;i++){
+    var pid=t.pids[i],row=rows[startIdx+i];
+    var role=row.querySelector('.r-role').value.trim();
+    var pt=losePt,isWin=false;
+    if(t.mode==='multi'){
+      isWin=row.querySelector('.r-win').checked;
+      pt=isWin?winPt:losePt;
+    }else if(t.mode==='pair'){
+      var myPair=(i%2===0)?'A':'B';
+      isWin=(myPair===winPair);
+      pt=isWin?winPt:losePt;
+    }else{
+      var rk=Number(row.querySelector('.r-rank').value);
+      isWin=(rk===1);
+      var step=Math.max(1,Math.floor((winPt-losePt)/Math.max(1,t.pids.length-1)));
+      pt=Math.max(losePt,winPt-(rk-1)*step);
+    }
+    res.push({pid:pid,role:role,pt:pt,win:isWin});
+    sums.push(pName(pid)+(role?'['+role+']':'')+(isWin?'★':'')+'('+pt+'pt)');
+  }
+  return{rn:t.rounds.length+1,sum:sums.join(' / '),res:res};
+}
+
+function openRec(tid){
+  recTblId=tid;
+  var t=trn.tables.find(function(x){return x.id===tid;});
+  if(!t)return;
+  var g=lib.find(function(x){return x.id===t.gameId;});
+  $('mRecGame').textContent=t.gameName;
+  $('mRecRound').textContent='第'+(t.rounds.length+1)+'回戦の記録';
+  $('mRecPrev').innerHTML=t.rounds.length?t.rounds.map(function(r){return '<div><b>第'+r.rn+'回戦:</b> '+r.sum+'</div>';}).join(''):'まだ記録された回戦はありません';
+  buildRoundInputs($('mRecBody'),t,g);
+  $('mRec').classList.remove('hide');
+}
+
+function commitRec(finish){
+  var t=trn.tables.find(function(x){return x.id===recTblId;});
+  if(!t)return;
+  var g=lib.find(function(x){return x.id===t.gameId;});
+  t.rounds.push(collectRoundResult($('mRecBody'),t,g));
+  if(finish){t.status='finished';t.tRun=false;$('mRec').classList.add('hide');toast('卓を終了し戦績を合算しました');}
+  else{openRec(t.id);toast('第'+t.rounds.length+'回戦を記録しました');}
+  save();renderAll();
+}
+
+function calcStats(data){
+  var map={},tmap={};
+  data.players.forEach(function(p){map[p.id]={id:p.id,name:p.name,teamId:p.teamId,gp:0,wins:0,rounds:0,byGame:{},roles:{}};});
+  (data.teams||[]).forEach(function(tm){tmap[tm.id]={id:tm.id,name:tm.name,gp:0,wins:0};});
+  data.tables.forEach(function(t){
+    t.rounds.forEach(function(r){
+      r.res.forEach(function(x){
+        var st=map[x.pid];if(!st)return;
+        st.gp+=x.pt;st.rounds++;if(x.win)st.wins++;
+        st.byGame[t.gameName]=(st.byGame[t.gameName]||0)+x.pt;
+        if(x.role){
+          if(!st.roles[x.role])st.roles[x.role]={n:0,w:0};
+          st.roles[x.role].n++;if(x.win)st.roles[x.role].w++;
+        }
+        if(tmap[st.teamId]){tmap[st.teamId].gp+=x.pt;if(x.win)tmap[st.teamId].wins++;}
+      });
+    });
+  });
+  var plist=Object.keys(map).map(function(k){return map[k];}).sort(function(a,b){return b.gp-a.gp||b.wins-a.wins;});
+  var tlist=Object.keys(tmap).map(function(k){return tmap[k];}).sort(function(a,b){return b.gp-a.gp;});
+  return{plist:plist,tlist:tlist,pmap:map};
+}
+
+function renderRank(){
+  var st=calcStats(trn);
+  $('teamRankCard').classList.toggle('hide',!trn.teamMode);
+  if(trn.teamMode){
+    $('teamRankTbl').innerHTML='<table><tr><th>順位</th><th>チーム</th><th>合計GP</th><th>勝利数</th></tr>'
+      +st.tlist.map(function(tm,i){return '<tr><td><b>'+(i+1)+'位</b></td><td>'+tm.name+'</td><td><b>'+tm.gp+' GP</b></td><td>'+tm.wins+'勝</td></tr>';}).join('')+'</table>';
+  }
+  var html='<table><tr><th>順位</th><th>プレイヤー</th><th>合計GP</th><th>勝利 / 回数</th><th>種目別内訳</th></tr>';
+  st.plist.forEach(function(p,i){
+    var gTags=Object.keys(p.byGame).map(function(gn){return '<span class="chip">'+gn+': '+p.byGame[gn]+'pt</span>';}).join(' ');
+    html+='<tr><td><b>'+(i+1)+'位</b></td><td><a href="javascript:void(0)" data-pid="'+p.id+'" style="color:var(--pri);font-weight:700;text-decoration:none">'+p.name+'</a></td><td><b>'+p.gp+' GP</b></td><td>'+p.wins+'勝 / '+p.rounds+'回</td><td>'+(gTags||'-')+'</td></tr>';
+  });
+  html+='</table>';
+  $('rankTbl').innerHTML=html;
+  $('rankTbl').querySelectorAll('a').forEach(function(a){
+    a.onclick=function(){
+      var p=st.pmap[a.getAttribute('data-pid')];if(!p)return;
+      $('mPlrName').textContent=p.name+' の戦績・役回り分析（合計 '+p.gp+' GP）';
+      var rKeys=Object.keys(p.roles);
+      var rHtml=rKeys.length?rKeys.map(function(rk){var o=p.roles[rk],rate=Math.round(o.w/o.n*100);return '<span class="chip">'+rk+': '+o.w+'勝/'+o.n+'回 ('+rate+'%)</span>';}).join(' '):'役回り記録なし';
+      $('mPlrStats').innerHTML='<div style="margin-bottom:8px"><b>役回り別勝率:</b><div class="flex" style="margin-top:4px">'+rHtml+'</div></div>';
+      $('mPlr').classList.remove('hide');
+    };
+  });
+}
+
+function renderLib(){
+  var box=$('libList');box.innerHTML='';
+  lib.forEach(function(g){
+    var d=document.createElement('div');
+    d.className='between';d.style.cssText='padding:8px;border:1px solid var(--bdr);border-radius:8px';
+    d.innerHTML='<div><b>'+g.name+'</b> <span class="chip">'+g.seats+'人</span> <span class="chip">'+modeTxt(g.mode)+'</span> <span style="font-size:11px;color:var(--mut)">勝'+g.win+'/参'+g.lose+'GP</span></div><button class="bo" style="color:var(--dan)">削除</button>';
+    d.querySelector('button').onclick=function(){if(lib.length<=1){toast('最低1種目は必要です');return;}lib=lib.filter(function(x){return x.id!==g.id;});save();renderAll();};
+    box.appendChild(d);
+  });
+}
+
+function renderPlayers(){
+  var box=$('playerList');box.innerHTML='';
+  trn.players.forEach(function(p){
+    var d=document.createElement('div');
+    d.className='between';d.style.cssText='padding:5px 8px;border-bottom:1px solid var(--bdr)';
+    var tmSel=trn.teamMode?'<select style="width:100px;padding:3px 6px">'+trn.teams.map(function(tm){return '<option value="'+tm.id+'"'+(tm.id===p.teamId?' selected':'')+'>'+tm.name+'</option>';}).join('')+'</select>':'';
+    d.innerHTML='<span>'+p.name+'</span><div class="flex">'+tmSel+'<button class="bo" style="color:var(--dan);padding:3px 8px">✕</button></div>';
+    if(trn.teamMode)d.querySelector('select').onchange=function(e){p.teamId=e.target.value;save();renderRank();};
+    d.querySelector('button').onclick=function(){trn.players=trn.players.filter(function(x){return x.id!==p.id;});picked=picked.filter(function(id){return id!==p.id;});save();renderAll();};
+    box.appendChild(d);
+  });
+}
+
+function renderSpec(){
+  $('specTitle').textContent=trn.title;
+  var tBox=$('specTables'),act=trn.tables.filter(function(t){return t.status==='active';});
+  tBox.innerHTML=act.length?act.map(function(t){
+    return '<div class="scard"><div class="between"><strong>'+t.gameName+'</strong><span class="chip" style="background:#4f46e5;color:#fff;border:none">⏱ '+fmtTime(t.tSec)+' / 第'+(t.rounds.length+1)+'回戦</span></div><div class="flex" style="margin-top:8px">'+t.pids.map(function(id){return '<span class="chip" style="background:#0f172a;color:#e2e8f0;border-color:#334155">'+(id===t.oyaId?'👑':'')+pName(id)+'</span>';}).join('')+'</div></div>';
+  }).join(''):'<div class="scard" style="color:#94a3b8">現在進行中の卓はありません</div>';
+  var st=calcStats(trn);
+  $('specRank').innerHTML='<table style="color:#f8fafc"><tr><th>順位</th><th>プレイヤー</th><th>GP</th><th>勝利</th></tr>'
+    +st.plist.slice(0,12).map(function(p,i){return '<tr><td><b>'+(i+1)+'位</b></td><td>'+p.name+'</td><td><b style="color:#34d399">'+p.gp+' GP</b></td><td>'+p.wins+'勝</td></tr>';}).join('')+'</table>';
+}
+
+// Event bindings
+document.querySelectorAll('.tab').forEach(function(b){
+  b.onclick=function(){
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act');});
+    b.classList.add('act');
+    var target=b.getAttribute('data-t');
+    ['t1','t2','t3','t4'].forEach(function(id){$(id).classList.toggle('hide',id!==target);});
+  };
+});
+
+$('bToggleNewTbl').onclick=function(){$('newTblBox').classList.toggle('hide');renderSelectGame();};
+$('selGame').onchange=renderSelectGame;
+$('bClearPick').onclick=function(){picked=[];renderPickPool();};
+$('bAutoPick').onclick=function(){
+  var n=Math.max(2,Math.min(20,Number($('inpSeats').value)||4)),busy=busyPids();
+  var free=trn.players.filter(function(p){return !busy[p.id];});
+  if(free.length<n){toast('空きメンバーが'+free.length+'名しかいません（必要:'+n+'名）');return;}
+  free.sort(function(){return Math.random()-0.5;});
+  picked=free.slice(0,n).map(function(p){return p.id;});
+  renderPickPool();
+};
+$('bCreateTbl').onclick=function(){
+  if(picked.length<2){toast('2名以上選択してください');return;}
+  var g=lib.find(function(x){return x.id===$('selGame').value;})||lib[0];
+  var oya=picked[Math.floor(Math.random()*picked.length)];
+  trn.tables.push({id:'tb_'+Date.now(),gameId:g.id,gameName:g.name,mode:g.mode,pids:picked.slice(),oyaId:oya,tSec:900,tRun:false,status:'active',rounds:[]});
+  picked=[];$('newTblBox').classList.add('hide');save();renderAll();toast('卓を作成しました（親: '+pName(oya)+'）');
+};
+
+$('bAddGame').onclick=function(){
+  var nm=$('gName').value.trim();if(!nm){toast('ゲーム名を入力してください');return;}
+  var rls=$('gRoles').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  lib.push({id:'g_'+Date.now(),name:nm,seats:Math.max(2,Math.min(20,Number($('gSeats').value)||4)),mode:$('gMode').value,win:Number($('gWin').value)||10,lose:Number($('gLose').value)||0,roles:rls});
+  $('gName').value='';$('gRoles').value='';save();renderAll();toast('種目をライブラリに保存しました');
+};
+
+$('tTitle').onchange=function(e){trn.title=e.target.value||'ボードゲーム大会';save();renderAll();};
+$('tTeamMode').onchange=function(e){trn.teamMode=e.target.checked;save();renderAll();};
+$('bShuffleTeams').onclick=function(){
+  var nms=$('tNames').value.split(',').map(function(s){return s.trim();}).filter(Boolean);
+  if(nms.length<2){toast('2チーム以上入力してください');return;}
+  trn.teams=nms.map(function(n,i){return{id:'tm_'+(i+1),name:n};});
+  var sh=trn.players.slice().sort(function(){return Math.random()-0.5;});
+  sh.forEach(function(p,i){p.teamId=trn.teams[i%trn.teams.length].id;});
+  save();renderAll();toast('チームをシャッフルしました');
+};
+$('bAddPlayer').onclick=function(){
+  var nm=$('pName').value.trim();if(!nm)return;
+  trn.players.push({id:'p_'+Date.now(),name:nm,teamId:(trn.teams[0]||{}).id||'tm1'});
+  $('pName').value='';save();renderAll();
+};
+$('bResetTourney').onclick=function(){
+  trn.tables=[];save();renderAll();toast('卓記録をリセットしました（種目ライブラリは保持されています）');
+};
+
+$('bSaveNext').onclick=function(){commitRec(false);};
+$('bSaveFinish').onclick=function(){commitRec(true);};
+$('bOnlyFinish').onclick=function(){
+  var t=trn.tables.find(function(x){return x.id===recTblId;});
+  if(t){t.status='finished';t.tRun=false;save();renderAll();}
+  $('mRec').classList.add('hide');
+};
+$('bCloseRec').onclick=function(){$('mRec').classList.add('hide');};
+$('bClosePlr').onclick=function(){$('mPlr').classList.add('hide');};
+
+// Dice & Coin
+$('bDice').onclick=function(){$('mDice').classList.remove('hide');};
+$('bCloseDice').onclick=function(){$('mDice').classList.add('hide');};
+$('bCoin').onclick=function(){$('diceOut').textContent=Math.random()<0.5?'🪙 表 (HEADS)':'🪙 裏 (TAILS)';};
+$('bD6').onclick=function(){$('diceOut').textContent='🎲 '+(Math.floor(Math.random()*6)+1);};
+$('bD20').onclick=function(){$('diceOut').textContent='🔮 '+(Math.floor(Math.random()*20)+1);};
+$('bRandP').onclick=function(){if(trn.players.length)$('diceOut').textContent='👤 '+trn.players[Math.floor(Math.random()*trn.players.length)].name;};
+
+// TXT Export & Import
+function dlTxt(filename,humanLines,payloadObj){
+  var txt=humanLines.join('\n')+'\n\n'+SEP+'\n'+JSON.stringify(payloadObj);
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([txt],{type:'text/plain;charset=utf-8'}));
+  a.download=filename;a.click();
+}
+$('bExp').onclick=function(){
+  var st=calcStats(trn),lines=['【'+trn.title+' スコアボード】'];
+  st.plist.forEach(function(p,i){lines.push((i+1)+'位: '+p.name+' '+p.gp+'GP ('+p.wins+'勝/'+p.rounds+'回)');});
+  dlTxt((trn.title||'tourney')+'.txt',lines,{type:'tourney',data:trn});toast('大会TXTを出力しました');
+};
+$('bExpLib').onclick=function(){
+  var lines=['【マイ種目ライブラリ】'].concat(lib.map(function(g){return '・'+g.name+' ('+g.seats+'人 / '+modeTxt(g.mode)+')';}));
+  dlTxt('bgmgr_library.txt',lines,{type:'library',data:lib});toast('種目ライブラリTXTを出力しました');
+};
+$('bImp').onclick=function(){impMode='tourney';$('mImpTitle').textContent='大会TXTの読み込み';$('impText').value='';$('mImp').classList.remove('hide');};
+$('bImpLib').onclick=function(){impMode='library';$('mImpTitle').textContent='種目ライブラリTXTの読み込み';$('impText').value='';$('mImp').classList.remove('hide');};
+$('bCloseImp').onclick=function(){$('mImp').classList.add('hide');};
+$('impFile').onchange=function(e){
+  var f=e.target.files[0];if(!f)return;
+  var r=new FileReader();r.onload=function(){$('impText').value=r.result;};r.readAsText(f);
+};
+$('bDoImp').onclick=function(){
+  try{
+    var raw=$('impText').value,idx=raw.indexOf(SEP);
+    var obj=JSON.parse(idx>=0?raw.slice(idx+SEP.length):raw);
+    if(obj.type==='library'||impMode==='library'){
+      var arr=obj.data||obj;if(Array.isArray(arr)){lib=arr;save();renderAll();toast('種目ライブラリを読み込みました');}
+    }else{
+      trn=obj.data||obj;save();renderAll();toast('大会データを復元しました');
+    }
+    $('mImp').classList.add('hide');
+  }catch(e){toast('TXTの解析に失敗しました');}
+};
+
+$('bCopySummary').onclick=function(){
+  var st=calcStats(trn),lines=['【'+trn.title+' 最終結果】'];
+  st.plist.forEach(function(p,i){lines.push((i+1)+'位: '+p.name+' ('+p.gp+'GP / '+p.wins+'勝)');});
+  var ta=document.createElement('textarea');ta.value=lines.join('\n');document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+  toast('結果テキストをコピーしました');
+};
+
+// Multi-TXT Season Aggregator
+$('multiTxtFiles').onchange=function(e){
+  var files=Array.from(e.target.files);if(!files.length)return;
+  Promise.all(files.map(function(f){return new Promise(function(res){var r=new FileReader();r.onload=function(){res(r.result);};r.readAsText(f);});})).then(function(txts){
+    var pAgg={},rAgg={},cnt=0;
+    txts.forEach(function(raw){
+      try{
+        var idx=raw.indexOf(SEP),obj=JSON.parse(idx>=0?raw.slice(idx+SEP.length):raw),d=obj.data||obj;
+        if(!d.players)return;cnt++;
+        var st=calcStats(d);
+        st.plist.forEach(function(p){
+          if(!pAgg[p.name])pAgg[p.name]={name:p.name,gp:0,wins:0,rounds:0};
+          pAgg[p.name].gp+=p.gp;pAgg[p.name].wins+=p.wins;pAgg[p.name].rounds+=p.rounds;
+          Object.keys(p.roles).forEach(function(rk){
+            if(!rAgg[rk])rAgg[rk]={role:rk,n:0,w:0};
+            rAgg[rk].n+=p.roles[rk].n;rAgg[rk].w+=p.roles[rk].w;
+          });
+        });
+      }catch(err){}
+    });
+    var list=Object.keys(pAgg).map(function(k){return pAgg[k];}).sort(function(a,b){return b.gp-a.gp;});
+    var rList=Object.keys(rAgg).map(function(k){return rAgg[k];}).sort(function(a,b){return (b.w/b.n)-(a.w/a.n);});
+    $('aggResult').innerHTML='<div style="margin-bottom:8px"><b>集計大会数: '+cnt+'大会</b></div>'
+      +'<table><tr><th>通算順位</th><th>プレイヤー</th><th>累計GP</th><th>累計勝利 / 試合</th></tr>'
+      +list.map(function(p,i){return '<tr><td><b>'+(i+1)+'位</b></td><td>'+p.name+'</td><td><b>'+p.gp+' GP</b></td><td>'+p.wins+'勝 / '+p.rounds+'回</td></tr>';}).join('')+'</table>'
+      +(rList.length?'<div style="margin-top:10px"><b>役回り別通算勝率:</b><div class="flex" style="margin-top:4px">'+rList.map(function(r){return '<span class="chip">'+r.role+': '+Math.round(r.w/r.n*100)+'% ('+r.w+'/'+r.n+')</span>';}).join('')+'</div></div>':'');
+  });
+};
+
+// Spectator Window & Overlay
+$('bSpec').onclick=function(){$('specView').classList.remove('hide');renderSpec();};
+$('bCloseSpec').onclick=function(){
+  if(location.hash==='#live'){
+    try{history.replaceState(null,'','#');}catch(e){location.hash='';}
+  }
+  $('specView').classList.add('hide');renderAll();
+};
+$('bSpecWin').onclick=function(){
+  var url=location.href.split('#')[0]+'#live';
+  var w=window.open(url,'bgmgr_live_win','width=1024,height=720');
+  if(!w){toast('ポップアップがブロックされたため同画面で観戦表示します');$('specView').classList.remove('hide');renderSpec();}
+  else{toast('ライブ観戦用ウィンドウを別窓で開きました');}
+};
+
+// Undo last round in modal
+$('bUndoRound').onclick=function(){
+  var t=trn.tables.find(function(x){return x.id===recTblId;});
+  if(!t||!t.rounds.length){toast('取り消す回戦がありません');return;}
+  t.rounds.pop();save();openRec(t.id);renderAll();toast('直前の1回戦を取り消しました');
+};
+
+// Compact URL Share Encoder / Decoder
+function buildShareUrl(){
+  var pIdx={};trn.players.forEach(function(p,i){pIdx[p.id]=i;});
+  var pack={
+    t:trn.title,
+    tm:trn.teamMode?1:0,
+    tms:trn.teams.map(function(x){return x.name;}),
+    p:trn.players.map(function(x){return[x.name,trn.teams.findIndex(function(y){return y.id===x.teamId;})];}),
+    tb:trn.tables.map(function(tb){
+      return[tb.gameName,tb.mode,tb.status==='finished'?1:0,tb.pids.map(function(id){return pIdx[id];}),tb.rounds.map(function(r){
+        return r.res.map(function(x){return[pIdx[x.pid],x.role||'',x.pt,x.win?1:0];});
+      })];
+    })
+  };
+  var enc=b64e(JSON.stringify(pack));
+  return location.href.split('#')[0]+'#share='+enc;
+}
+function loadFromShareHash(enc){
+  try{
+    var d=JSON.parse(b64d(enc));
+    var teams=(d.tms||['レッド','ブルー']).map(function(nm,i){return{id:'tm'+(i+1),name:nm};});
+    var players=(d.p||[]).map(function(arr,i){return{id:'p'+(i+1),name:arr[0],teamId:(teams[arr[1]]||teams[0]).id};});
+    var tables=(d.tb||[]).map(function(arr,ti){
+      var pids=(arr[3]||[]).map(function(idx){return(players[idx]||{}).id;}).filter(Boolean);
+      var rounds=(arr[4]||[]).map(function(rArr,ri){
+        var sums=[],res=[];
+        rArr.forEach(function(x){
+          var pid=(players[x[0]]||{}).id;if(!pid)return;
+          var nm=(players[x[0]]||{}).name,rl=x[1]||'',pt=x[2]||0,w=!!x[3];
+          res.push({pid:pid,role:rl,pt:pt,win:w});
+          sums.push(nm+(rl?'['+rl+']':'')+(w?'★':'')+'('+pt+'pt)');
+        });
+        return{rn:ri+1,sum:sums.join(' / '),res:res};
+      });
+      return{id:'tb_sh_'+ti,gameId:'g_sh',gameName:arr[0],mode:arr[1]||'multi',pids:pids,oyaId:pids[0]||'',tSec:900,tRun:false,status:arr[2]?'finished':'active',rounds:rounds};
+    });
+    trn={title:d.t||'共有された大会記録',teamMode:!!d.tm,teams:teams,players:players,tables:tables};
+    save();
+    return true;
+  }catch(e){return false;}
+}
+$('bShareUrl').onclick=function(){
+  var url=buildShareUrl();
+  $('shareUrlTxt').value=url;
+  $('shareUrlLen').textContent='URL文字数: '+url.length+'文字（LINE・Discord等でそのまま共有可能）';
+  drawQr($('shareQrCanvas'),url);
+  $('mShare').classList.remove('hide');
+};
+$('bCloseShare').onclick=function(){$('mShare').classList.add('hide');};
+$('bCopyShareUrl').onclick=function(){
+  var ta=$('shareUrlTxt');ta.select();document.execCommand('copy');toast('配布用URLをコピーしました');
+};
+$('bPreviewShare').onclick=function(){
+  var url=$('shareUrlTxt').value,idx=url.indexOf('#share=');
+  if(idx>=0&&loadFromShareHash(url.slice(idx+7))){
+    $('mShare').classList.add('hide');
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act');});
+    document.querySelector('.tab[data-t="t3"]').classList.add('act');
+    ['t1','t2','t3','t4'].forEach(function(id){$(id).classList.toggle('hide',id!=='t3');});
+    renderAll();toast('配布URLから大会記録を読み込みました');
+  }
+};
+
+// QR Relay: Host -> Child Table
+function showDistQr(t){
+  var g=lib.find(function(x){return x.id===t.gameId;})||{win:10,lose:2,roles:[]};
+  var payload={id:t.id,gn:t.gameName,m:t.mode,w:g.win,l:g.lose,rl:g.roles,ps:t.pids.map(function(id){return{id:id,n:pName(id)};}),oya:pName(t.oyaId),rds:t.rounds};
+  var enc=b64e(JSON.stringify(payload));
+  var shareUrl=location.href.split('#')[0]+'#table='+enc;
+  $('mQrTitle').textContent='📱 各卓へ配布用QR（'+t.gameName+'）';
+  $('mQrDesc').textContent='この卓の担当スマホのカメラでQRを読み取るか、下のテスト起動ボタンで子機記録画面を開けます。';
+  $('qrLinkBox').classList.remove('hide');
+  $('qrPayloadTxt').value=shareUrl;
+  drawQr($('qrCanvas'),shareUrl);
+  $('bTestChild').onclick=function(){$('mQrShow').classList.add('hide');enterChildMode(enc);};
+  $('mQrShow').classList.remove('hide');
+}
+$('bCloseQrShow').onclick=function(){$('mQrShow').classList.add('hide');};
+$('bCopyQrTxt').onclick=function(){var ta=$('qrPayloadTxt');ta.select();document.execCommand('copy');toast('コピーしました');};
+
+// Child Mode Logic
+function enterChildMode(enc){
+  try{
+    var d=JSON.parse(b64d(enc));
+    childTbl={id:d.id,gameName:d.gn,mode:d.m,win:d.w,lose:d.l,roles:d.rl||[],players:d.ps,pids:d.ps.map(function(x){return x.id;}),oya:d.oya,rounds:d.rds||[]};
+    $('mainWrap').classList.add('hide');$('hdrBtns').classList.add('hide');$('childWrap').classList.remove('hide');
+    renderChild();
+  }catch(e){toast('卓データの読み込みに失敗しました');}
+}
+function chPName(id){var p=childTbl.players.find(function(x){return x.id===id;});return p?p.n:'不明';}
+function renderChild(){
+  $('chGameName').textContent=childTbl.gameName;
+  $('chMeta').textContent=modeTxt(childTbl.mode)+' / 親: '+childTbl.oya+' / 参加: '+childTbl.players.map(function(x){return x.n;}).join(', ');
+  $('chPrev').innerHTML=childTbl.rounds.length?childTbl.rounds.map(function(r){return '<div><b>第'+r.rn+'回戦:</b> '+r.sum+'</div>';}).join(''):'まだ記録された回戦はありません';
+  $('chRoundLbl').textContent='第'+(childTbl.rounds.length+1)+'回戦の記録';
+  var origPName=pName;
+  // Temporarily resolve names from childTbl
+  var box=$('chBody');box.innerHTML='';
+  var g={win:childTbl.win,lose:childTbl.lose,roles:childTbl.roles};
+  buildRoundInputs(box,childTbl,g);
+  box.querySelectorAll('b').forEach(function(b,i){if(childTbl.players[i])b.textContent=childTbl.players[i].n;});
+}
+function saveChildRound(){
+  var box=$('chBody'),winPt=Number(childTbl.win)||10,losePt=Number(childTbl.lose)||2;
+  var rows=box.querySelectorAll(':scope > div'),startIdx=childTbl.mode==='pair'?1:0;
+  var winPair=childTbl.mode==='pair'?(box.querySelector('input[name="winPair"]:checked').value):'';
+  var res=[],sums=[];
+  for(var i=0;i<childTbl.pids.length;i++){
+    var pid=childTbl.pids[i],row=rows[startIdx+i],role=row.querySelector('.r-role').value.trim(),pt=losePt,isWin=false;
+    if(childTbl.mode==='multi'){isWin=row.querySelector('.r-win').checked;pt=isWin?winPt:losePt;}
+    else if(childTbl.mode==='pair'){isWin=((i%2===0?'A':'B')===winPair);pt=isWin?winPt:losePt;}
+    else{var rk=Number(row.querySelector('.r-rank').value);isWin=(rk===1);var step=Math.max(1,Math.floor((winPt-losePt)/Math.max(1,childTbl.pids.length-1)));pt=Math.max(losePt,winPt-(rk-1)*step);}
+    res.push({pid:pid,role:role,pt:pt,win:isWin});
+    sums.push(chPName(pid)+(role?'['+role+']':'')+(isWin?'★':'')+'('+pt+'pt)');
+  }
+  childTbl.rounds.push({rn:childTbl.rounds.length+1,sum:sums.join(' / '),res:res});
+}
+$('bChSaveRound').onclick=function(){saveChildRound();renderChild();toast('第'+childTbl.rounds.length+'回戦を記録しました');};
+$('bChShowQr').onclick=function(){
+  if(!childTbl.rounds.length)saveChildRound();
+  var retCode='BG_RET:'+b64e(JSON.stringify({id:childTbl.id,rds:childTbl.rounds}));
+  $('mQrTitle').textContent='📤 戦績回収用QR（親機へ提示）';
+  $('mQrDesc').textContent='親機の「📥 結果QR回収」でこのQRを読み取るか、連携コードを親機へ送ってください。';
+  $('qrLinkBox').classList.add('hide');
+  $('qrPayloadTxt').value=retCode;
+  drawQr($('qrCanvas'),retCode);
+  $('mQrShow').classList.remove('hide');
+};
+$('bExitChild').onclick=function(){
+  try{history.replaceState(null,'','#');}catch(e){location.hash='';}
+  $('childWrap').classList.add('hide');$('mainWrap').classList.remove('hide');$('hdrBtns').classList.remove('hide');renderAll();
+};
+
+// QR Relay: Child -> Host Scan & Merge
+function stopCam(){
+  clearInterval(scanTimer);
+  if(camStream){camStream.getTracks().forEach(function(t){t.stop();});camStream=null;}
+  $('qrVideo').classList.add('hide');$('camStatus').textContent='';
+}
+$('bScanQr').onclick=function(){$('qrScanTxt').value='';$('mQrScan').classList.remove('hide');};
+$('bCloseQrScan').onclick=function(){stopCam();$('mQrScan').classList.add('hide');};
+$('bStartCam').onclick=function(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){toast('この環境ではカメラを利用できません');return;}
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(function(st){
+    camStream=st;var v=$('qrVideo');v.srcObject=st;v.classList.remove('hide');v.play();
+    if('BarcodeDetector' in window){
+      var det=new BarcodeDetector({formats:['qr_code']});
+      $('camStatus').textContent='QRコードをかざしてください...';
+      scanTimer=setInterval(function(){
+        det.detect(v).then(function(codes){
+          if(codes.length){$('qrScanTxt').value=codes[0].rawValue;stopCam();toast('QRコードを読み取りました！');}
+        }).catch(function(){});
+      },400);
+    }else{$('camStatus').textContent='※自動QR認識非対応ブラウザのため、連携コード貼付をご利用ください';}
+  }).catch(function(){toast('カメラの起動が許可されませんでした');});
+};
+function applyReturnCode(raw,keepActive){
+  try{
+    var s=raw.trim();
+    if(s.indexOf('BG_RET:')===0)s=s.slice(7);
+    else if(s.indexOf('PKM_RET:')===0)s=s.slice(8);
+    var obj=JSON.parse(b64d(s));
+    var t=trn.tables.find(function(x){return x.id===obj.id;});
+    if(!t){toast('該当する進行中の卓が見つかりません');return;}
+    t.rounds=obj.rds||[];
+    if(!keepActive){t.status='finished';t.tRun=false;}
+    save();stopCam();$('mQrScan').classList.add('hide');renderAll();
+    toast('「'+t.gameName+'」全'+t.rounds.length+'回戦を'+(keepActive?'途中経過として反映':'完了として合算')+'しました！');
+  }catch(e){toast('回収コードの解析に失敗しました');}
+}
+$('bApplyQrTxt').onclick=function(){applyReturnCode($('qrScanTxt').value,false);};
+$('bApplyQrKeep').onclick=function(){applyReturnCode($('qrScanTxt').value,true);};
+
+load();
+if(location.hash==='#live'){
+  $('specView').classList.remove('hide');renderSpec();
+}else if(location.hash.indexOf('#table=')===0){
+  enterChildMode(location.hash.slice(7));
+}else if(location.hash.indexOf('#share=')===0){
+  if(loadFromShareHash(location.hash.slice(7))){
+    try{history.replaceState(null,'','#');}catch(e){location.hash='';}
+    renderAll();
+    document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('act');});
+    document.querySelector('.tab[data-t="t3"]').classList.add('act');
+    ['t1','t2','t3','t4'].forEach(function(id){$(id).classList.toggle('hide',id!=='t3');});
+    toast('配布された大会記録を読み込みました！');
+  }else{renderAll();}
+}else{
+  renderAll();
+}
+})();
+</script>
+</body>
+</html>
